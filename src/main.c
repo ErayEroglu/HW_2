@@ -12,7 +12,7 @@ typedef enum // Token types which will be needed in lexical analysis
     CONST,
     VAR,
     COMMA,
-    ADDITION,   
+    ADDITION,
     SUBTRACTION,
     MULTIPLICATION,
     AND,
@@ -64,6 +64,7 @@ Node *parseT(Token *ptoken_list, int *pos);
 Node *parseE(Token *ptoken_list, int *pos);
 Node *parseB(Token *ptoken_list, int *pos);
 Node *parse(Token *ptoken_list, int *pos);
+char **fileReader(char *path);
 Variable *hashMap[HASH_SIZE];
 unsigned int hashFunction(char *s);
 bool printFlag = true;  // a boolean checker to print the result unless it is an equation
@@ -73,23 +74,36 @@ int num_tokens;
 void main()
 {
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
-    while (true)
+    char *path = "src\\try.txt";
+    FILE *pFile = fopen(path, "r"); // !!! FILE ISMINI KONSOLDAN MI ALMAN GEREKIYOR?????
+    char pInpFile[257][257];
+    int line = 0;
+    
+    while (fgets(pInpFile[line], 257, pFile) != NULL)
+    {
+        line++;
+    }
+    fclose(pFile);
+    
+    int index = 0;
+    while (index < line)
     {
         int position = 0; // an int variable to keep the index of position during the parsing operations
         int *ppos = &position;
-        char expr[256]; // input is stored in char array
-        char* s = fgets(expr, 256, stdin);
-        if (s[strlen(s) - 2] != '\n') 
-        {
-            printf("\n");
-        }
-        if (s == NULL) 
-        {   
-            break;
-        }
-        
-        num_tokens = strlen(expr);
-        Token *tokens = createToken(expr, &num_tokens); // converts the given string to list of tokens
+    
+        // eski input alma versiyonu
+        // char* s = fgets(expr, 256, stdin);
+        // if (s[strlen(s) - 2] != '\n')
+        // {
+        //     printf("\n");
+        // }
+        // if (s == NULL)
+        // {
+        //     break;
+        // }
+
+        num_tokens =  sizeof(pInpFile[index]) / sizeof(pInpFile[index][0]);
+        Token *tokens = createToken(pInpFile[index], &num_tokens); // converts the given string to list of tokens
 
         if (num_tokens == 0) // if there is not any token in the input, do nothing
         {
@@ -120,12 +134,33 @@ void main()
 
         printFlag = true;
         errorFlag = false;
-        
+
+        index++;
     }
     free(tokens); // frees the memory
 }
 
 // helper methods
+
+// char** fileReader(char *path)
+// {
+//     FILE *p = fopen(path, "r");
+//     // char **lines = (char**) malloc(sizeof(char*) * 257);
+//     // char *line = (char*) malloc(257);
+//     char arr[257][257];
+//     int index = 0;
+
+//     if (p == NULL)
+//     {
+//         return NULL;
+//     }
+
+    
+//     char *pchar[] = arr;
+//     pchar[index] = '\0';
+//     fclose(p);
+//     return pchar;
+// }
 
 unsigned int hashFunction(char *p) // generates hash position for the given variable
 {                                  // uses unsigned int to avoid negative values
@@ -339,8 +374,8 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
     *token_number = found_tokens;
 
     // reallocates the memory to avoid memory leak
-    token_list = (Token*) realloc(token_list,(*token_number) * sizeof(Token));  // at first this memory was equal to length of array * size of token 
-    return token_list; // returns the list of tokens                            
+    token_list = (Token *)realloc(token_list, (*token_number) * sizeof(Token)); // at first this memory was equal to length of array * size of token
+    return token_list;                                                          // returns the list of tokens
 }
 
 Node *constructNode(TokenType op, long long int *value, char *name, Node *left, Node *right) // makes the adjustments for a node
@@ -377,7 +412,7 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
     Node *temp = parseB(ptoken_list, pos);
 
     // error check
-    if (temp == NULL)  // if other parsing functions return NULL, there must be something wrong
+    if (temp == NULL) // if other parsing functions return NULL, there must be something wrong
     {
         errorFlag = true;
         return NULL;
@@ -393,22 +428,22 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
         Token *op_token = &(ptoken_list[*pos]);
         (*pos)++;
 
-        if (*pos == num_tokens)  // if number of tokens is equal to the index of token list, that means the rest of equation is missing
-        {                        // it is a different error check
+        if (*pos == num_tokens) // if number of tokens is equal to the index of token list, that means the rest of equation is missing
+        {                       // it is a different error check
             errorFlag = true;
             return NULL;
         }
 
         Node *temp2 = parseB(ptoken_list, pos);
 
-        if (temp == NULL)  // similar with the first error check
+        if (temp == NULL) // similar with the first error check
         {
             errorFlag = true;
             return NULL;
         }
         temp = createNode(op_token, temp, temp2);
     }
-    if (*pos < num_tokens)  // if at the end of assignment operation we didn't reach the last pos of token list, that means an error
+    if (*pos < num_tokens) // if at the end of assignment operation we didn't reach the last pos of token list, that means an error
     {
         errorFlag = true;
         return NULL;
