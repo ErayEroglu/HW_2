@@ -84,8 +84,8 @@ int *pdummyCounter = &dummyCounter;
 void main()
 {
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
-    char *path = "try.txt";
-    FILE *pFile = fopen(path, "r");
+    char *path = "./try.txt";
+    FILE *pFile = fopen(path, "rb");
     char pInpFile[257][257];
     int line = 0;
 
@@ -109,6 +109,7 @@ void main()
     int index = 0;
     while (index < line)
     {
+        
         int position = 0; // an int variable to keep the index of position during the parsing operations
         int *ppos = &position;
 
@@ -155,8 +156,9 @@ void main()
 
         printFlag = true;
         errorFlag = false;
-
         index++;
+
+        
     }
     printf("ret i32 0\n}");
     free(tokens); // frees the memory
@@ -230,6 +232,9 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
             pcurrent_char++;
             break;
         case '\n':
+            pcurrent_char++;
+            break;
+        case '\r':
             pcurrent_char++;
             break;
         case '+':

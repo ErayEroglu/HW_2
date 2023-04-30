@@ -1,22 +1,7 @@
-siu = 11
-siuuu = 7
-siu / siuuu
-siu = siu * siuuu
-
-
-
-siu - siu + siu * siu / siu
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+a = 8
+b = 8 * (a - 6)
+c = b + 6
+ls(a, 2)
+xor(b - a + 1, 17)
+y = 2 * b - c
+xor(rs(y, 2), not(c))
