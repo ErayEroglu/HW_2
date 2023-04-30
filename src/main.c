@@ -15,6 +15,7 @@ typedef enum // Token types which will be needed in lexical analysis
     ADDITION,
     SUBTRACTION,
     MULTIPLICATION,
+    DIVISION,
     AND,
     OR,
     XOR,
@@ -32,7 +33,7 @@ typedef enum // Token types which will be needed in lexical analysis
 typedef struct // Token structure to create tokens
 {              // Each token has 4 members
     TokenType type;
-    long long int number;
+    int number;
     char *id;
     char *name;
 } Token;
@@ -40,24 +41,25 @@ typedef struct // Token structure to create tokens
 typedef struct Node // Node structure, it will be used in creating parse trees
 {                   // Each node keeps track of its left/right children and has 3 other members
     TokenType op;
-    long long int *value;
+    int *value;
     char *name;
+    int *dummyNo;
     struct Node *left;
     struct Node *right;
 } Node;
 
 typedef struct Variable // struct for a hashtable which will store data for variables
 {
-    long long int data;
+    int data;
     char *key;
 } Variable;
 
 // global variables and method declarations
 
 Token *createToken(char *inp_s, int *token_number);
-long long int evaluate(Node *nodeP);
+int evaluate(Node *nodeP);
 Node *createNode(Token *token, Node *left, Node *right);
-Node *constructNode(TokenType op, long long int *value, char *name, Node *left, Node *right);
+Node *constructNode(TokenType op, int *value, char *name, Node *left, Node *right);
 Node *parseF(Token *ptoken_list, int *pos);
 Node *parseFnc(Token *ptoken_list, int *pos);
 Node *parseT(Token *ptoken_list, int *pos);
@@ -67,10 +69,13 @@ Node *parse(Token *ptoken_list, int *pos);
 char **fileReader(char *path);
 Variable *hashMap[HASH_SIZE];
 unsigned int hashFunction(char *s);
+void allocate(char* name);
+void store(int value,char* name);
 bool printFlag = true;  // a boolean checker to print the result unless it is an equation
 bool errorFlag = false; // another boolean checker, it controls whether the input has a syntax error or not
 int num_tokens;
-
+int dummyCounter = 0;
+int *pdummyCounter = &dummyCounter;
 void main()
 {
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
@@ -79,7 +84,7 @@ void main()
     char pInpFile[257][257];
     int line = 0;
     
-    while (fgets(pInpFile[line], 257, pFile) != NULL)
+    while(fgets(pInpFile[line], 257, pFile) != NULL)
     {
         line++;
     }
@@ -91,16 +96,6 @@ void main()
         int position = 0; // an int variable to keep the index of position during the parsing operations
         int *ppos = &position;
     
-        // eski input alma versiyonu
-        // char* s = fgets(expr, 256, stdin);
-        // if (s[strlen(s) - 2] != '\n')
-        // {
-        //     printf("\n");
-        // }
-        // if (s == NULL)
-        // {
-        //     break;
-        // }
 
         num_tokens =  sizeof(pInpFile[index]) / sizeof(pInpFile[index][0]);
         Token *tokens = createToken(pInpFile[index], &num_tokens); // converts the given string to list of tokens
@@ -142,26 +137,10 @@ void main()
 
 // helper methods
 
-// char** fileReader(char *path)
+// int dummyGenerate(int *counter)
 // {
-//     FILE *p = fopen(path, "r");
-//     // char **lines = (char**) malloc(sizeof(char*) * 257);
-//     // char *line = (char*) malloc(257);
-//     char arr[257][257];
-//     int index = 0;
-
-//     if (p == NULL)
-//     {
-//         return NULL;
-//     }
-
-    
-//     char *pchar[] = arr;
-//     pchar[index] = '\0';
-//     fclose(p);
-//     return pchar;
+//     (*counter)++;
 // }
-
 unsigned int hashFunction(char *p) // generates hash position for the given variable
 {                                  // uses unsigned int to avoid negative values
     char *s = NULL;
@@ -188,7 +167,7 @@ Variable *search(char *pkey) // searches for the var name, if it exists returns 
     return NULL;
 }
 
-Variable *createVar(char *key, long long int data) // method to create variable
+Variable *createVar(char *key,  int data) // method to create variable
 {
     Variable *var = malloc(sizeof(Variable)); // creates memory for the var
     var->data = data;
@@ -196,7 +175,7 @@ Variable *createVar(char *key, long long int data) // method to create variable
     return var;
 }
 
-void insert(char *key, long long int data) // inserting function for hashmap
+void insert(char *key,  int data) // inserting function for hashmap
 {
 
     Variable *var = createVar(key, data);
@@ -245,6 +224,12 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
         case '*':
             token_list[found_tokens].type = MULTIPLICATION;
             token_list[found_tokens].id = "MULTIPLICATION";
+            found_tokens++;
+            pcurrent_char++;
+            break;
+        case '/':
+            token_list[found_tokens].type = DIVISION;
+            token_list[found_tokens].id = "DIVISION";
             found_tokens++;
             pcurrent_char++;
             break;
@@ -378,15 +363,16 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
     return token_list;                                                          // returns the list of tokens
 }
 
-Node *constructNode(TokenType op, long long int *value, char *name, Node *left, Node *right) // makes the adjustments for a node
+Node *constructNode(TokenType op,int *value, char *name, Node *left, Node *right) // makes the adjustments for a node
 {
     Node *node = malloc(sizeof(Node)); // allocates the memory for a node
     node->op = op;
-    node->value = malloc(sizeof(long long int)); // allocates the memory for node value
+    node->value = malloc(sizeof(int)); // allocates the memory for node value
     *(node->value) = *value;
     node->name = strdup(name);
     node->left = left;
     node->right = right;
+    node->dummyNo = NULL;
     return node;
 }
 
@@ -394,7 +380,7 @@ Node *createNode(Token *token, Node *left, Node *right) // creates nodes for par
 {                                                       // calls the constructNode method to reach data and allocate memory
 
     TokenType op = token->type;
-    long long int *value = malloc(sizeof(long long int));
+    int *value = malloc(sizeof(int));
     *value = token->number;
     if (op == VAR)
     {
@@ -441,6 +427,7 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
             errorFlag = true;
             return NULL;
         }
+
         temp = createNode(op_token, temp, temp2);
     }
     if (*pos < num_tokens) // if at the end of assignment operation we didn't reach the last pos of token list, that means an error
@@ -531,7 +518,7 @@ Node *parseT(Token *ptoken_list, int *pos) // parses term into factors, looks fo
         return NULL;
     }
 
-    while (ptoken_list[*pos].type == MULTIPLICATION)
+    while (ptoken_list[*pos].type == MULTIPLICATION || ptoken_list[*pos].type == DIVISION)
     {
         Token *op_token = &(ptoken_list[*pos]);
 
@@ -622,17 +609,20 @@ Node *parseFnc(Token *ptoken_list, int *pos) // looks for functions with two par
 
 Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
 {
-
-    if (ptoken_list[*pos].type == CONST) // if the current token matches the type, creates node
+    if (ptoken_list[*pos].type == VAR)
     {
-
+        //BURASI UPDATELENICEK UNDEFINED VARIABLE ERRORU ICIN
+        if(!search(ptoken_list[*pos].name)){
+            allocate(ptoken_list[*pos].name);
+        }
+        insert(ptoken_list[*pos].name, ptoken_list[*pos].number);
         Node *temp = createNode(&(ptoken_list[*pos]), NULL, NULL);
         (*pos)++;
         return temp;
     }
-    else if (ptoken_list[*pos].type == VAR)
+    else if (ptoken_list[*pos].type == CONST) // if the current token matches the type, creates node
     {
-        insert(ptoken_list[*pos].name, ptoken_list[*pos].number);
+
         Node *temp = createNode(&(ptoken_list[*pos]), NULL, NULL);
         (*pos)++;
         return temp;
@@ -700,8 +690,19 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
     }
 }
 
+//NOT : SYNTAX ERROR GELİRSE FILE OUTPUT OLMAMALI
+void allocate(char* name){
+    //write : %name = alloca i32 "\n"
+    printf("%%%s = alloca i32 \n",name);
+}
+void store(int value , char* name){
+    //write : store i32 value , i32* %name "\n"
+    printf("store i32 %d, i32* %%%s",value,name);
+}
+
+
 // method to evaluate the tree
-long long int evaluate(Node *nodeP)
+int evaluate(Node *nodeP)
 {
     // starts to evaluate from root node recursively
 
@@ -709,6 +710,7 @@ long long int evaluate(Node *nodeP)
     if (nodeP->op == ADDITION)
     {
         return evaluate(nodeP->left) + evaluate(nodeP->right);
+
     }
     else if (nodeP->op == SUBTRACTION)
     {
@@ -718,7 +720,10 @@ long long int evaluate(Node *nodeP)
     {
         return evaluate(nodeP->left) * evaluate(nodeP->right);
     }
-
+    else if (nodeP->op == DIVISION)
+    {
+        return evaluate(nodeP->left) / evaluate(nodeP->right);
+    }
     else if (nodeP->op == CONST)
     {
         return *(nodeP->value);
@@ -730,15 +735,21 @@ long long int evaluate(Node *nodeP)
         {
             return var->data;
         }
-        return 0LL;
+        //BURAYA ERROR
+        return 0;
     }
 
     else if (nodeP->op == EQUAL) // if there exist an equation, no printing
     {
+        //STORE BURADA 
+        //AŞAĞISI UPDATELENİCEK 
         Node *pLeft;
         pLeft = nodeP->left;
         Variable *pVar = search(pLeft->name);
         pVar->data = evaluate(nodeP->right);
+
+        store(pVar->data,pVar->key);
+        
         printFlag = false;
         return pVar->data;
     }
