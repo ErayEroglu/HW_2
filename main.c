@@ -91,7 +91,7 @@ void main()
     pOutputFile = fopen("./file.ll","w");
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
     char *path = "./try.txt";
-    FILE *pFile = fopen(path, "rb");
+    FILE *pFile = fopen(path, "r");
     char pInpFile[257][257];
     int line = 0;
 
