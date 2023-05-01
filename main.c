@@ -3,12 +3,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <limits.h>
 #define HASH_SIZE 256 // size of a hashtable
 
 // structure definitions
-// TO DO UNDEFINED VARIABLES
 // PATH ISLEMLERI
-// WSL TESTLERI
 
 typedef enum // Token types which will be needed in lexical analysis
 {
@@ -88,16 +87,25 @@ FILE *pOutputFile;
 bool deleteFlag = false;
 bool isLeftHandSide;
 
-void main()
+void main(int argc, char *argv[])
 {
-    pOutputFile = fopen("./file.ll", "w");
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
-    char *path = "./try.txt";
+    char *path = argv[1];
     FILE *pFile = fopen(path, "r");
-    char pInpFile[257][257];
+    
+    char *output_path = malloc(strlen(path) + 1);
+    strcpy(output_path, path);
+    char *ext = strrchr(output_path, '.');
+    if (ext == NULL) {
+        ext = output_path + strlen(output_path);
+    }
+    strcpy(ext, ".ll");
+
+    pOutputFile = fopen(output_path, "w");
+    char pInpFile[10000][257];
     int line = 0;
 
-    while (fgets(pInpFile[line], 257, pFile) != NULL)
+    while (fgets(pInpFile[line], 10000, pFile) != NULL)
     {
         // Remove the newline character from the line
         char *pos = strchr(pInpFile[line], '\n');
@@ -437,10 +445,12 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
 {
     int nextpos = (*pos);
     nextpos++;
+    
     if (ptoken_list[nextpos].type == EQUAL)
     {
         isLeftHandSide = true;
     } // looks for = operation, if it exists creates the node
+
     Node *temp = parseB(ptoken_list, pos);
     // error check
     if (temp == NULL) // if other parsing functions return NULL, there must be something wrong
