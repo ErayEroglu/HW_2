@@ -92,11 +92,12 @@ void main(int argc, char *argv[])
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
     char *path = argv[1];
     FILE *pFile = fopen(path, "r");
-    
+
     char *output_path = malloc(strlen(path) + 1);
     strcpy(output_path, path);
     char *ext = strrchr(output_path, '.');
-    if (ext == NULL) {
+    if (ext == NULL)
+    {
         ext = output_path + strlen(output_path);
     }
     strcpy(ext, ".ll");
@@ -161,8 +162,16 @@ void main(int argc, char *argv[])
             int res = evaluate(pnode); // calls the method which evaluates the tree
             if (printFlag)
             {
+                if (pnode->op == CONST)
+                {
+                    fprintf(pOutputFile, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %d)\n", (*pnode->value));
+                    (*pdummyCounter)++;
+                }
+                
+                else{
                 fprintf(pOutputFile, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %%%d)\n", pnode->dummyNo);
                 (*pdummyCounter)++;
+                }
             }
         }
         else
@@ -445,7 +454,7 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
 {
     int nextpos = (*pos);
     nextpos++;
-    
+
     if (ptoken_list[nextpos].type == EQUAL)
     {
         isLeftHandSide = true;
