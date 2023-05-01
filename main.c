@@ -82,22 +82,22 @@ bool errorFlag = false; // another boolean checker, it controls whether the inpu
 int num_tokens;
 int dummyCounter = 1;
 int dummyofChild(Node *node);
-int *pdummyCounter = &dummyCounter;
+int *pdummyCounter = &dummyCounter; //pointer to a global dummycounter
 FILE *pOutputFile;
-bool deleteFlag = false;
-bool isLeftHandSide;
+bool deleteFlag = false; //boolean checker, if theres syntax error the output file is removed
+bool isLeftHandSide; // boolean checker if a given variable is at the LHS of equals operator
 
 void main(int argc, char *argv[])
 {
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
+    //input file from main args
     char *path = argv[1];
     FILE *pFile = fopen(path, "r");
-
+    //updates output file from ./<input>.adv to ./<input>.ll
     char *output_path = malloc(strlen(path) + 1);
     strcpy(output_path, path);
     char *ext = strrchr(output_path, '.');
-    if (ext == NULL)
-    {
+    if (ext == NULL) {
         ext = output_path + strlen(output_path);
     }
     strcpy(ext, ".ll");
@@ -117,12 +117,15 @@ void main(int argc, char *argv[])
         line++;
     }
     fclose(pFile);
-
+    
+    //writes the beginnig of LLVM IR code to the output file
     fprintf(pOutputFile, "; ModuleID = 'advcalc2ir'\n");
     fprintf(pOutputFile, "declare i32 @printf(i8*, ...)\n");
     fprintf(pOutputFile, "@print.str = constant [4 x i8] c\"%%d\\0A\\00\"\n\n");
     fprintf(pOutputFile, "define i32 @main() {\n");
 
+
+    //this while loop iterates through lines of inputfile    
     int index = -1;
     while (index < line)
     {
@@ -151,39 +154,44 @@ void main(int argc, char *argv[])
 
         if (!errorFlag)
         {
+            // if there are no syntax errors a
             if (pnode->op == EQUAL)
             {
+                //if there is an assignment left hand side shouldnt be loaded so 
+                //recursive load method starts from rightchild and loads every variable in there
                 load(pnode->right);
             }
             else
             {
+                //recursive load method loads every variable in an expression to a dummyvar
                 load(pnode);
             }
             int res = evaluate(pnode); // calls the method which evaluates the tree
             if (printFlag)
-            {
-                if (pnode->op == CONST)
-                {
+            {   
+                //if there is no assingment there should be a print 
+                //so we write call statement to the output file and increment dummyCounter
+                if(pnode->op == CONST){
                     fprintf(pOutputFile, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %d)\n", (*pnode->value));
                     (*pdummyCounter)++;
-                }
-                
-                else{
-                fprintf(pOutputFile, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %%%d)\n", pnode->dummyNo);
-                (*pdummyCounter)++;
+                }else{
+                    fprintf(pOutputFile, "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %%%d)\n", pnode->dummyNo);
+                    (*pdummyCounter)++;
                 }
             }
         }
         else
-        {
+        {   
+            //if there is an error on a line it is printed to termina lhere
             printf("Error on line %d!\n", index + 1);
             deleteFlag = true;
         }
-
+        //flags are resetted for next iteration
         printFlag = true;
         errorFlag = false;
     }
     fprintf(pOutputFile, "ret i32 0\n}");
+    //if there is an error on a delete flag is true and the output file is removed
     if (deleteFlag)
     {
         remove("./file.ll");
@@ -429,7 +437,6 @@ Node *constructNode(TokenType op, int *value, char *name, Node *left, Node *righ
     node->name = strdup(name);
     node->left = left;
     node->right = right;
-    // node->dummyNo = NULL;
     return node;
 }
 
@@ -452,13 +459,16 @@ Node *createNode(Token *token, Node *left, Node *right) // creates nodes for par
 
 Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
 {
+    //nextpos will check the next element at tokenList
     int nextpos = (*pos);
     nextpos++;
+    
 
+    //if there is an equal operator that mean we are currently at LHS so flag is true
     if (ptoken_list[nextpos].type == EQUAL)
     {
         isLeftHandSide = true;
-    } // looks for = operation, if it exists creates the node
+    } 
 
     Node *temp = parseB(ptoken_list, pos);
     // error check
@@ -474,9 +484,6 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
             errorFlag = true;
             return NULL;
         }
-        // if (temp->op == VAR){
-        //     allocate(temp->name);
-        // }
 
         Token *op_token = &(ptoken_list[*pos]);
         (*pos)++;
@@ -678,8 +685,9 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
 {
     if (ptoken_list[*pos].type == VAR)
     {
-        // BURASI UPDATELENICEK UNDEFINED VARIABLE ERRORU ICIN
-
+        // if we are currently on LHS , we allocate the variable if it is not already defined
+        //  and we insert it for evaluate operations
+        // only LHS variables are inserted to hashMap of variables
         if (isLeftHandSide)
         {
 
@@ -691,6 +699,9 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
             insert(ptoken_list[*pos].name, ptoken_list[*pos].number);
             isLeftHandSide = false;
         }
+        //this error flag is for undefined variables
+        //since only LHS varaibles are inserted, if a variable is not inserted before
+        // then it not undefined so this is a syntax error
         if (!search(ptoken_list[*pos].name))
         {
             errorFlag = true;
@@ -770,25 +781,29 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
     }
 }
 
-// NOT : SYNTAX ERROR GELİRSE FILE OUTPUT OLMAMALI
+
 void allocate(char *name)
 {
-    // write : %name = alloca i32 "\n"
+    //writes simple allocate LLVM command which takes variable's name as input
     fprintf(pOutputFile, "%%%s = alloca i32\n", name);
 }
 void store(Node *node, char *name)
 {
+    //writes store LLVM command 
     if (node->op == CONST)
     {
+        //if node is constant then there is no % in 
         int value = *(node->value);
         fprintf(pOutputFile, "store i32 %d, i32* %%%s\n", value, name);
     }
     else
     {
+        //if node is not constant then there is an extra % and dummyNo
         int dummyNo = node->dummyNo;
         fprintf(pOutputFile, "store i32 %%%d, i32* %%%s\n", dummyNo, name);
     }
 }
+//recursive load function that loads every variable in a tree starting from root node
 void load(Node *node)
 {
     if (node == NULL)
@@ -801,16 +816,26 @@ void load(Node *node)
     {
         char *name = node->name;
         fprintf(pOutputFile, "%%%d = load i32, i32* %%%s\n", dummyCounter, name);
+        //current node has a dummyNo now so we can call it while writing binary operations
         node->dummyNo = dummyCounter;
+        //since a dummy var is created , dummyCounter  is updated
         (*pdummyCounter)++;
     }
 }
+//this writes the current binary process to output file as LLVM code
+//left rotate and right rotate is not included
+//not is not included since it is not binary
 void printProcess(Node *node, char *name)
 {
     int dummyLeft = dummyofChild(node->left);
     int dummyRight = dummyofChild(node->right);
     Node *pLeft = node->left;
     Node *pRight = node->right;
+    //if statements are used for node types
+    //if a node is constant then in prints there is no % before its value
+    //representing constant value
+    //if a node is not constant then its dummyNo is used 
+    //and there is a % before (which represents a dummyVar)
     if (pLeft->op == CONST)
     {
         if (pRight->op == CONST)
@@ -836,7 +861,8 @@ void printProcess(Node *node, char *name)
     node->dummyNo = dummyCounter;
     (*pdummyCounter)++;
 }
-
+//write function for leftrotate and write rotate
+// if statements for constant types are similar with the ones explained before
 void printRotate(Node *node, TokenType token)
 {
     int dummyLeft = dummyofChild(node->left);
@@ -982,7 +1008,8 @@ void printRotate(Node *node, TokenType token)
         }
     }
 }
-
+//returns the dummyNo of a child of a node
+//if it is constant then since there is no dummyVar, the value of constant is returned 
 int dummyofChild(Node *node)
 {
     int dummy;
@@ -1003,6 +1030,10 @@ int evaluate(Node *nodeP)
     // starts to evaluate from root node recursively
 
     // binary operations
+
+
+    //after every recursion write functions are added before returning
+    //so the write statements start at the deepest state of recursion
     if (nodeP->op == ADDITION)
     {
         int leftR = evaluate(nodeP->left);
@@ -1049,19 +1080,18 @@ int evaluate(Node *nodeP)
         {
             return var->data;
         }
-        // BURAYA ERROR
         return 0;
     }
 
     else if (nodeP->op == EQUAL) // if there exist an equation, no printing
     {
-        // STORE BURADA
-        // AŞAĞISI UPDATELENİCEK
         Node *pLeft;
         pLeft = nodeP->left;
         Variable *pVar = search(pLeft->name);
 
         pVar->data = evaluate(nodeP->right);
+
+        //if node type is equal then store LLVM command is written to the output file
         store(nodeP->right, pVar->key);
 
         printFlag = false;
@@ -1086,6 +1116,8 @@ int evaluate(Node *nodeP)
     // function with one parameter
     else if (nodeP->op == NOT)
     {
+        //not nodes have only left child since it is not binary
+        //not llvm command is written with xor (dummyLeft, -1)
         int leftR = evaluate(nodeP->left);
         Node *pleft = nodeP->left;
         int dummyLeft;
