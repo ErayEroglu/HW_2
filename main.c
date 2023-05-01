@@ -434,13 +434,13 @@ Node *createNode(Token *token, Node *left, Node *right) // creates nodes for par
 // parsing functions
 
 Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
-{              
+{
     int nextpos = (*pos);
-    nextpos ++;
-    if
-    (ptoken_list[nextpos].type == EQUAL){
+    nextpos++;
+    if (ptoken_list[nextpos].type == EQUAL)
+    {
         isLeftHandSide = true;
-    }                          // looks for = operation, if it exists creates the node
+    } // looks for = operation, if it exists creates the node
     Node *temp = parseB(ptoken_list, pos);
     // error check
     if (temp == NULL) // if other parsing functions return NULL, there must be something wrong
@@ -455,12 +455,12 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
             errorFlag = true;
             return NULL;
         }
-        if (temp->op == VAR){
-            allocate(temp->name);
-        }
+        // if (temp->op == VAR){
+        //     allocate(temp->name);
+        // }
 
         Token *op_token = &(ptoken_list[*pos]);
-        (*pos)++;           
+        (*pos)++;
         if (*pos == num_tokens) // if number of tokens is equal to the index of token list, that means the rest of equation is missing
         {                       // it is a different error check
             errorFlag = true;
@@ -659,16 +659,24 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
 {
     if (ptoken_list[*pos].type == VAR)
     {
-        //BURASI UPDATELENICEK UNDEFINED VARIABLE ERRORU ICIN
-         
-        if(isLeftHandSide){
+        // BURASI UPDATELENICEK UNDEFINED VARIABLE ERRORU ICIN
+
+        if (isLeftHandSide)
+        {
+
+            if (!search(ptoken_list[*pos].name))
+            {
+                allocate(ptoken_list[*pos].name);
+            }
+
             insert(ptoken_list[*pos].name, ptoken_list[*pos].number);
             isLeftHandSide = false;
         }
-        if(!search(ptoken_list[*pos].name)){
+        if (!search(ptoken_list[*pos].name))
+        {
             errorFlag = true;
             return NULL;
-         }
+        }
         Node *temp = createNode(&(ptoken_list[*pos]), NULL, NULL);
         (*pos)++;
         return temp;
@@ -773,7 +781,7 @@ void load(Node *node)
     if (node->op == VAR)
     {
         char *name = node->name;
-        fprintf(pOutputFile, "%%%d load i32, i32* %%%s\n", dummyCounter, name);
+        fprintf(pOutputFile, "%%%d = load i32, i32* %%%s\n", dummyCounter, name);
         node->dummyNo = dummyCounter;
         (*pdummyCounter)++;
     }
