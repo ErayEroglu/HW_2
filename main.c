@@ -6,7 +6,10 @@
 #define HASH_SIZE 256 // size of a hashtable
 
 // structure definitions
-
+//TO DO UNDEFINED VARIABLES
+// PATH ISLEMLERI
+//WSL TESTLERI
+// REMOVE FILE
 typedef enum // Token types which will be needed in lexical analysis
 {
     CONST,
@@ -70,19 +73,22 @@ Node *parse(Token *ptoken_list, int *pos);
 char **fileReader(char *path);
 Variable *hashMap[HASH_SIZE];
 unsigned int hashFunction(char *s);
-void allocate(char *name);
-void store(Node *node, char *name);
-void load(Node *node);
-void printProcess(Node *node, char *name);
+void allocate(char* name);
+void store(Node* node,char* name);
+void load(Node* node);
+void printProcess(Node* node,char* name);
+void printRotate(Node* node,TokenType token);
 bool printFlag = true;  // a boolean checker to print the result unless it is an equation
 bool errorFlag = false; // another boolean checker, it controls whether the input has a syntax error or not
 int num_tokens;
 int dummyCounter = 1;
-int dummyofChild(Node *node);
+int dummyofChild(Node* node);
 int *pdummyCounter = &dummyCounter;
-
+FILE *pOutputFile ;
+bool deleteFlag = false;
 void main()
 {
+    pOutputFile = fopen("./file.ll","w");
     Token *tokens = NULL; // a pointer which points to list of the tokenized form of given input
     char *path = "./try.txt";
     FILE *pFile = fopen(path, "rb");
@@ -100,20 +106,21 @@ void main()
         line++;
     }
     fclose(pFile);
-
-    printf("; ModuleID = 'advcalc2ir'\n");
-    printf("declare i32 @printf(i8*, ...)\n");
-    printf("@print.str = constant [4 x i8] c\"%%d\\0A\\00\"\n\n");
-    printf("define i32 @main() {\n");
-
-    int index = 0;
+    
+    fprintf(pOutputFile,"; ModuleID = 'advcalc2ir'\n");
+    fprintf(pOutputFile,"declare i32 @printf(i8*, ...)\n");
+    fprintf(pOutputFile,"@print.str = constant [4 x i8] c\"%%d\\0A\\00\"\n\n");
+    fprintf(pOutputFile,"define i32 @main() {\n");
+    
+    int index = -1;
     while (index < line)
     {
-        
+        index++;
         int position = 0; // an int variable to keep the index of position during the parsing operations
         int *ppos = &position;
+    
 
-        num_tokens = sizeof(pInpFile[index]) / sizeof(pInpFile[index][0]);
+        num_tokens =  sizeof(pInpFile[index]) / sizeof(pInpFile[index][0]);
         Token *tokens = createToken(pInpFile[index], &num_tokens); // converts the given string to list of tokens
 
         if (num_tokens == 0) // if there is not any token in the input, do nothing
@@ -123,48 +130,52 @@ void main()
 
         if (tokens == NULL) // if the input is consisted of unknown chars, there is an error
         {
-            printf("Error!\n");
+            printf("Error on line %d!\n",index+1);
             errorFlag = false;
             printFlag = true;
+            deleteFlag = true;
             continue;
         }
 
         Node *pnode = parse(tokens, ppos); // calls the primary parsing method
 
-        if (pnode->op == EQUAL)
-        {
-            load(pnode->right);
-        }
-        else
-        {
-            load(pnode);
-        }
-
         if (!errorFlag)
-        {
+        {   
+            if(pnode->op==EQUAL){
+                load(pnode->right);
+            }else{
+                load(pnode);
+            }
             int res = evaluate(pnode); // calls the method which evaluates the tree
             if (printFlag)
-            {
-                printf("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %%%d)\n", pnode->dummyNo);
-                (*pdummyCounter)++;
+            {   
+                fprintf(pOutputFile,"call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @print.str, i32 0, i32 0), i32 %%%d)\n",pnode->dummyNo);
+                (*pdummyCounter)++;       
             }
         }
         else
         {
-            printf("Error!\n");
+            printf("Error on line %d!\n",index+1);
+            deleteFlag = true;
         }
 
         printFlag = true;
         errorFlag = false;
-        index++;
 
         
     }
-    printf("ret i32 0\n}");
+    fprintf(pOutputFile,"ret i32 0\n}");
+    if(deleteFlag)
+    {
+        remove("./file.ll");
+    }
+
     free(tokens); // frees the memory
+    fclose(pOutputFile);
 }
 
 // helper methods
+
 
 unsigned int hashFunction(char *p) // generates hash position for the given variable
 {                                  // uses unsigned int to avoid negative values
@@ -192,7 +203,7 @@ Variable *search(char *pkey) // searches for the var name, if it exists returns 
     return NULL;
 }
 
-Variable *createVar(char *key, int data) // method to create variable
+Variable *createVar(char *key,  int data) // method to create variable
 {
     Variable *var = malloc(sizeof(Variable)); // creates memory for the var
     var->data = data;
@@ -200,7 +211,7 @@ Variable *createVar(char *key, int data) // method to create variable
     return var;
 }
 
-void insert(char *key, int data) // inserting function for hashmap
+void insert(char *key,  int data) // inserting function for hashmap
 {
 
     Variable *var = createVar(key, data);
@@ -235,8 +246,8 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
             pcurrent_char++;
             break;
         case '\r':
-            pcurrent_char++;
-            break;
+        pcurrent_char++;
+        break;
         case '+':
             token_list[found_tokens].type = ADDITION;
             token_list[found_tokens].id = "ADDITION";
@@ -263,7 +274,7 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
             break;
         case '%':
             token_list[found_tokens].type = MODULE;
-            token_list[found_tokens].id = "DIVISION";
+            token_list[found_tokens].id = "MODULE";
             found_tokens++;
             pcurrent_char++;
             break;
@@ -391,7 +402,7 @@ Token *createToken(char *inp_s, int *token_number) // creates token according to
     return token_list;                                                          // returns the list of tokens
 }
 
-Node *constructNode(TokenType op, int *value, char *name, Node *left, Node *right) // makes the adjustments for a node
+Node *constructNode(TokenType op,int *value, char *name, Node *left, Node *right) // makes the adjustments for a node
 {
     Node *node = malloc(sizeof(Node)); // allocates the memory for a node
     node->op = op;
@@ -400,7 +411,7 @@ Node *constructNode(TokenType op, int *value, char *name, Node *left, Node *righ
     node->name = strdup(name);
     node->left = left;
     node->right = right;
-    // node->dummyNo = NULL;
+    //node->dummyNo = NULL;
     return node;
 }
 
@@ -441,7 +452,6 @@ Node *parse(Token *ptoken_list, int *pos) // main parsing method, calls parseB
 
         Token *op_token = &(ptoken_list[*pos]);
         (*pos)++;
-
         if (*pos == num_tokens) // if number of tokens is equal to the index of token list, that means the rest of equation is missing
         {                       // it is a different error check
             errorFlag = true;
@@ -546,7 +556,9 @@ Node *parseT(Token *ptoken_list, int *pos) // parses term into factors, looks fo
     }
 
     while (
-        ptoken_list[*pos].type == MULTIPLICATION || ptoken_list[*pos].type == DIVISION || ptoken_list[*pos].type == MODULE)
+    ptoken_list[*pos].type == MULTIPLICATION 
+    || ptoken_list[*pos].type == DIVISION 
+    || ptoken_list[*pos].type == MODULE)
     {
         Token *op_token = &(ptoken_list[*pos]);
 
@@ -640,9 +652,8 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
 {
     if (ptoken_list[*pos].type == VAR)
     {
-        // BURASI UPDATELENICEK UNDEFINED VARIABLE ERRORU ICIN
-        if (!search(ptoken_list[*pos].name))
-        {
+        //BURASI UPDATELENICEK UNDEFINED VARIABLE ERRORU ICIN
+        if(!search(ptoken_list[*pos].name)){
             allocate(ptoken_list[*pos].name);
         }
         insert(ptoken_list[*pos].name, ptoken_list[*pos].number);
@@ -720,86 +731,192 @@ Node *parseF(Token *ptoken_list, int *pos) // parsing factor method
     }
 }
 
-// NOT : SYNTAX ERROR GELİRSE FILE OUTPUT OLMAMALI
-void allocate(char *name)
-{
-    // write : %name = alloca i32 "\n"
-    printf("%%%s = alloca i32\n", name);
+//NOT : SYNTAX ERROR GELİRSE FILE OUTPUT OLMAMALI
+void allocate(char* name){
+    //write : %name = alloca i32 "\n"
+    fprintf(pOutputFile,"%%%s = alloca i32\n",name);
 }
-void store(Node *node, char *name)
-{
-    if (node->op == CONST)
-    {
+void store(Node* node , char* name){
+    if(node->op==CONST){
         int value = *(node->value);
-        printf("store i32 %d, i32* %%%s\n", value, name);
-    }
-    else
-    {
+        fprintf(pOutputFile,"store i32 %d, i32* %%%s\n",value,name);
+    }else{
         int dummyNo = node->dummyNo;
-        printf("store i32 %%%d, i32* %%%s\n", dummyNo, name);
+        fprintf(pOutputFile,"store i32 %%%d, i32* %%%s\n",dummyNo,name);
     }
+    
 }
-void load(Node *node)
-{
-    if (node == NULL)
-    {
+void load(Node* node){
+    if (node == NULL){
         return;
     }
     load(node->left);
     load(node->right);
-    if (node->op == VAR)
-    {
-        char *name = node->name;
-        printf("%%%d load i32, i32* %%%s\n", dummyCounter, name);
+    if(node->op == VAR){
+        char* name = node->name;
+        fprintf(pOutputFile,"%%%d load i32, i32* %%%s\n",dummyCounter,name);
         node->dummyNo = dummyCounter;
         (*pdummyCounter)++;
     }
 }
-void printProcess(Node *node, char *name)
-{
+void printProcess(Node* node,char* name){
     int dummyLeft = dummyofChild(node->left);
     int dummyRight = dummyofChild(node->right);
-    Node *pLeft = node->left;
-    Node *pRight = node->right;
-    if (pLeft->op == CONST)
-    {
-        if (pRight->op == CONST)
-        {
-            printf("%%%d = %s i32 %d,%d\n", dummyCounter, name, dummyLeft, dummyRight);
+    Node* pLeft = node->left;
+    Node* pRight = node->right;
+    if(pLeft->op == CONST){
+        if(pRight->op == CONST){
+            fprintf(pOutputFile,"%%%d = %s i32 %d,%d\n",dummyCounter,name,dummyLeft,dummyRight);
+        }else{
+            fprintf(pOutputFile,"%%%d = %s i32 %d,%%%d\n",dummyCounter,name,dummyLeft,dummyRight); 
         }
-        else
-        {
-            printf("%%%d = %s i32 %d,%%%d\n", dummyCounter, name, dummyLeft, dummyRight);
-        }
-    }
-    else
-    {
-        if (pRight->op == CONST)
-        {
-            printf("%%%d = %s i32 %%%d,%d\n", dummyCounter, name, dummyLeft, dummyRight);
-        }
-        else
-        {
-            printf("%%%d = %s i32 %%%d,%%%d\n", dummyCounter, name, dummyLeft, dummyRight);
+    }else{
+        if(pRight->op == CONST){
+            fprintf(pOutputFile,"%%%d = %s i32 %%%d,%d\n",dummyCounter,name,dummyLeft,dummyRight);
+        }else{
+            fprintf(pOutputFile,"%%%d = %s i32 %%%d,%%%d\n",dummyCounter,name,dummyLeft,dummyRight);
         }
     }
     node->dummyNo = dummyCounter;
     (*pdummyCounter)++;
 }
 
-int dummyofChild(Node *node)
-{
-    int dummy;
-    if (node->op == CONST)
-    {
-        dummy = *(node->value);
+void printRotate(Node* node,TokenType token){
+    int dummyLeft = dummyofChild(node->left);
+    int dummyRight = dummyofChild(node->right);
+    Node* pLeft = node->left;
+    Node* pRight = node->right;
+    if (token == R_ROTATE){
+        if(pLeft->op == CONST){
+        if(pRight->op == CONST){
+            fprintf(pOutputFile,"%%%d = ashr i32 %d,%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = shl i32 %d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++;
+        }else{
+            fprintf(pOutputFile,"%%%d = ashr i32 %d,%%%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%%%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = shl i32 %d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++; 
+        }
+    }else{
+        if(pRight->op == CONST){
+            fprintf(pOutputFile,"%%%d = ashr i32 %%%d,%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = shl i32 %%%d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++;
+        }else{
+            fprintf(pOutputFile,"%%%d = ashr i32 %%%d,%%%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%%%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = shl i32 %%%d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++;
+        }
     }
-    else
-    {
+    }else{
+        if(pLeft->op == CONST){
+        if(pRight->op == CONST){
+            fprintf(pOutputFile,"%%%d = shl i32 %d,%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = ashr i32 %d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++;
+        }else{
+            fprintf(pOutputFile,"%%%d = shl i32 %d,%%%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%%%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = ashr i32 %d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++; 
+        }
+    }else{
+        if(pRight->op == CONST){
+            fprintf(pOutputFile,"%%%d = shl i32 %%%d,%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = ashr i32 %%%d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++;
+        }else{
+            fprintf(pOutputFile,"%%%d = shl i32 %%%d,%%%d\n",dummyCounter,dummyLeft,dummyRight);
+            int dumNo1 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = sub i32 32,%%%d\n",dummyCounter,dummyRight);
+            int dumNo2 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = ashr i32 %%%d,%%%d\n",dummyCounter,dummyLeft,dumNo2);
+            int dumNo3 = dummyCounter;
+            (*pdummyCounter)++;
+            fprintf(pOutputFile,"%%%d = or i32 %%%d,%%%d\n",dummyCounter,dumNo1,dumNo3);
+            node->dummyNo = dummyCounter;
+            (*pdummyCounter)++;
+        }
+    }
+
+    }
+
+}
+
+int dummyofChild(Node* node){
+    int dummy;
+    if (node->op == CONST){
+        dummy = *(node->value);
+    }else{
         dummy = node->dummyNo;
     }
     return dummy;
 }
+
 
 // method to evaluate the tree
 int evaluate(Node *nodeP)
@@ -811,29 +928,30 @@ int evaluate(Node *nodeP)
     {
         int leftR = evaluate(nodeP->left);
         int rightR = evaluate(nodeP->right);
-        printProcess(nodeP, "add");
+        printProcess(nodeP,"add");
         return leftR + rightR;
     }
     else if (nodeP->op == SUBTRACTION)
     {
         int leftR = evaluate(nodeP->left);
         int rightR = evaluate(nodeP->right);
-        printProcess(nodeP, "sub");
+        printProcess(nodeP,"sub");
         return leftR - rightR;
     }
     else if (nodeP->op == MULTIPLICATION)
     {
         int leftR = evaluate(nodeP->left);
         int rightR = evaluate(nodeP->right);
-        printProcess(nodeP, "mul");
+        printProcess(nodeP,"mul");
         return leftR * rightR;
     }
     else if (nodeP->op == DIVISION)
     {
         int leftR = evaluate(nodeP->left);
         int rightR = evaluate(nodeP->right);
-        printProcess(nodeP, "sdiv");
+        printProcess(nodeP,"sdiv");
         return leftR / rightR;
+        
     }
     else if (nodeP->op == MODULE)
     {
@@ -853,22 +971,21 @@ int evaluate(Node *nodeP)
         {
             return var->data;
         }
-        // BURAYA ERROR
+        //BURAYA ERROR
         return 0;
     }
 
     else if (nodeP->op == EQUAL) // if there exist an equation, no printing
     {
-        // STORE BURADA
-        // AŞAĞISI UPDATELENİCEK
+        //STORE BURADA 
+        //AŞAĞISI UPDATELENİCEK 
         Node *pLeft;
         pLeft = nodeP->left;
         Variable *pVar = search(pLeft->name);
 
         pVar->data = evaluate(nodeP->right);
-
-        store(nodeP->right, pVar->key);
-
+        store(nodeP->right,pVar->key);
+        
         printFlag = false;
         return pVar->data;
     }
@@ -878,32 +995,32 @@ int evaluate(Node *nodeP)
     {
         int leftR = evaluate(nodeP->left);
         int rightR = evaluate(nodeP->right);
-        printProcess(nodeP, "and");
+        printProcess(nodeP,"and");
         return leftR & rightR;
     }
     else if (nodeP->op == OR)
     {
         int leftR = evaluate(nodeP->left);
         int rightR = evaluate(nodeP->right);
-        printProcess(nodeP, "or");
+        printProcess(nodeP,"or");
         return leftR | rightR;
     }
     // function with one parameter
     else if (nodeP->op == NOT)
     {
-        int leftR = evaluate(nodeP->left);
-        Node *pleft = nodeP->left;
+        int leftR = evaluate(nodeP->left); 
+        Node *pleft = nodeP -> left;
         int dummyLeft;
         if (pleft->op == CONST)
         {
             dummyLeft = *(pleft->value);
-            printf("%%%d = %s i32 %d,%d\n", dummyCounter, "xor", dummyLeft, -1);
+            fprintf(pOutputFile,"%%%d = %s i32 %d,%d\n", dummyCounter,"xor", dummyLeft, -1);
             (*pdummyCounter)++;
-        }
-        else
+        } 
+        else 
         {
             dummyLeft = pleft->dummyNo;
-            printf("%%%d = %s i32 %%%d,%d\n", dummyCounter, "xor", dummyLeft, -1);
+            fprintf(pOutputFile,"%%%d = %s i32 %%%d,%d\n", dummyCounter,"xor", dummyLeft, -1);
             nodeP->dummyNo = dummyCounter;
             (*pdummyCounter)++;
         }
@@ -924,23 +1041,29 @@ int evaluate(Node *nodeP)
         case XOR:
             leftR = evaluate(nodeP->left);
             rightR = evaluate(nodeP->right);
-            printProcess(nodeP, "xor");
+            printProcess(nodeP,"xor");
             return leftR ^ rightR;
             break;
         case L_SHIFT:
             leftR = evaluate(nodeP->left);
             rightR = evaluate(nodeP->right);
-            printProcess(nodeP, "shl");
+            printProcess(nodeP,"shl");
             return leftR << rightR;
         case R_SHIFT:
             leftR = evaluate(nodeP->left);
             rightR = evaluate(nodeP->right);
-            printProcess(nodeP, "ashr");
+            printProcess(nodeP,"ashr");
             return leftR >> rightR;
         case L_ROTATE:
-            return (evaluate(nodeP->left) << evaluate(nodeP->right)) | (evaluate(nodeP->left) >> (64 - evaluate(nodeP->right)));
+            leftR = evaluate(nodeP->left);
+            rightR = evaluate(nodeP->right);
+            printRotate(nodeP,L_ROTATE);
+            return (leftR << rightR) | (leftR >> (32 - rightR));
         case R_ROTATE:
-            return (evaluate(nodeP->left) >> evaluate(nodeP->right)) | (evaluate(nodeP->left) << (64 - evaluate(nodeP->right)));
+            leftR = evaluate(nodeP->left);
+            rightR = evaluate(nodeP->right);
+            printRotate(nodeP,R_ROTATE);
+            return (leftR >> rightR) | (leftR << (32 - rightR));
         default:
             break;
         }
